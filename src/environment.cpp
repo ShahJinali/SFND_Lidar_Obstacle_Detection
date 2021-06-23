@@ -46,6 +46,10 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
     std::vector<Car> cars = initHighway(renderScene, viewer);
     
     // TODO:: Create lidar sensor 
+    Lidar *lidar = new Lidar(cars,0);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr inputCloud = lidar->scan();
+    renderPointCloud(viewer,inputCloud,"InputCloud");
+    renderRays(viewer,lidar->position,inputCloud);
 
     // TODO:: Create point processor
   
@@ -75,10 +79,15 @@ void initCamera(CameraAngle setAngle, pcl::visualization::PCLVisualizer::Ptr& vi
         viewer->addCoordinateSystem (1.0);
 }
 
+/***
+ * This is the main function which initialize the camera parameters and initialize the simulated environment of simple highway
+ * @param argc
+ * @param argv
+ * @return
+ */
+int main (int argc, char** argv){
 
-int main (int argc, char** argv)
-{
-    std::cout << "starting enviroment" << std::endl;
+    std::cout << "Starting environment..." << std::endl;
 
     pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
     CameraAngle setAngle = XY;
