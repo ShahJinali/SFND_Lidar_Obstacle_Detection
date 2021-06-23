@@ -41,9 +41,22 @@ typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(ty
 template<typename PointT>
 std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SeparateClouds(pcl::PointIndices::Ptr inliers, typename pcl::PointCloud<PointT>::Ptr cloud) 
 {
-  // TODO: Create two new point clouds, one cloud with obstacles and other with segmented plane
+    // TODO: Create two new point clouds, one cloud with obstacles and other with segmented plane
+    typename pcl::PointCloud<PointT>::Ptr obstacleCloud(new pcl::PointCloud<PointT>());
+    typename pcl::PointCloud<PointT>::Ptr roadCloud(new pcl::PointCloud<PointT>());
 
-    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult(cloud, cloud);
+    for (int index : inliers->indices) {
+        roadCloud->points.push_back(cloud->points[index]);
+    }
+
+    pcl::ExtractIndices<PointT> extract;
+
+    extract.setInputCloud(cloud);
+    extract.setNegative(true);
+    extract.setIndices(inliers);
+    extract.filter(*obstacleCloud);
+
+    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult(obstacleCloud, roadCloud);
     return segResult;
 }
 
@@ -53,14 +66,34 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
 {
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
-	pcl::PointIndices::Ptr inliers;
-    // TODO:: Fill in this function to find inliers for the cloud.
+
+    //Create the object of inliers
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
+
+    //Create the object to store model coefficient
+    pcl::ModelCoefficients::Ptr coefficient(new pcl::ModelCoefficients());
+
+    //Create the Segmentation object
+    pcl::SACSegmentation<PointT> seg;
+    seg.setOptimizeCoefficients(true);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setModelType(pcl::SACMODEL_PLANE);
+    seg.setDistanceThreshold(distanceThreshold);
+    seg.setMaxIterations(maxIterations);
+    seg.setInputCloud(cloud);
+
+    seg.segment(*inliers,*coefficient);
+
+    if(inliers->indices.size() == 0){
+        PCL_ERROR ("Could not estimate a planar model for the given dataset.\n");
+    }
 
     auto endTime = std::chrono::steady_clock::now();
-    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-    std::cout << "plane segmentation took " << elapsedTime.count() << " milliseconds" << std::endl;
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+    std::cout << "Plane segmentation took " << elapsedTime.count() << " microseconds" << std::endl;
 
     std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateClouds(inliers,cloud);
+
     return segResult;
 }
 
