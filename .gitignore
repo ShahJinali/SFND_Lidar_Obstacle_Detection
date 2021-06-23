@@ -1,3 +1,7 @@
 cmake-build-release/
 cmake-build-debug/
 .idea/
+src/quiz/ransac/cmake-build-debug/
+src/quiz/ransac/cmake-build-release/
+src/quiz/cluster/cmake-build-debug/
+src/quiz/cluster/cmake-build-release/

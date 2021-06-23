@@ -75,15 +75,56 @@ void render2DTree(Node* node, pcl::visualization::PCLVisualizer::Ptr& viewer, Bo
 
 }
 
+void proximity(KdTree* tree, std::vector<float> target, int target_index, float distanceTol, std::vector<int> &clusterIndices, std::vector < std::pair<std::vector<float>, bool> > &record) {
+
+    //Mark point as processed
+    record[target_index].second = true;
+
+    //Add index/point to cluster
+    clusterIndices.push_back(target_index);
+
+    //Find nearby points
+    std::vector<int> nearby = tree->search(target, distanceTol);
+
+    for (int idx : nearby) {
+        if (!record[idx].second) {
+            proximity(tree, record[idx].first, idx, distanceTol, clusterIndices, record);
+        }
+    }
+}
+
 std::vector<std::vector<int>> euclideanCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol)
 {
-
 	// TODO: Fill out this function to return list of indices for each cluster
+	std::vector<std::vector<int>> clusters; //similar to std::vector<pcl::PointIndices> clusters
 
-	std::vector<std::vector<int>> clusters;
- 
+	/**
+	 * Create new data structure which holds point and corresponding flag.
+	 * Flag indicates whether that point is part of any cluster or not
+	 * 1 Point can be part of only one cluster
+	 */
+	std::vector<std::pair<std::vector<float>, bool>> record;
+	for(int point_no = 0 ;point_no <points.size(); point_no++){
+
+	    record.push_back(std::make_pair(points[point_no], false));
+	}
+
+	/**
+	 * Iterate over each point
+	 */
+	for(int point_no = 0 ;point_no<record.size(); point_no++){
+
+	    if(!record[point_no].second){
+
+	        std::vector<int> clusterIndices;
+            proximity(tree,record[point_no].first,point_no,distanceTol,clusterIndices,record);
+
+            //Also possible to check min size and max size of cluster before inserting
+            clusters.push_back(clusterIndices);
+	    }
+	}
+
 	return clusters;
-
 }
 
 int main ()
@@ -107,7 +148,7 @@ int main ()
 	KdTree* tree = new KdTree;
   
     for (int i=0; i<points.size(); i++) 
-    	tree->insert(points[i],i); 
+    	tree->insert(points[i],i); //similar to tree->setInputCloud() of built-in pcl::search::kdtree function
 
   	int it = 0;
   	render2DTree(tree->root,viewer,window, it);
@@ -120,12 +161,12 @@ int main ()
 
   	// Time segmentation process
   	auto startTime = std::chrono::steady_clock::now();
-  	//
+
   	std::vector<std::vector<int>> clusters = euclideanCluster(points, tree, 3.0);
-  	//
+
   	auto endTime = std::chrono::steady_clock::now();
   	auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-  	std::cout << "clustering found " << clusters.size() << " and took " << elapsedTime.count() << " milliseconds" << std::endl;
+  	std::cout << "Clustering found " << clusters.size() << " and took " << elapsedTime.count() << " milliseconds" << std::endl;
 
   	// Render clusters
   	int clusterId = 0;
