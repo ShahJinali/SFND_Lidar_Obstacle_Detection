@@ -23,18 +23,50 @@ void ProcessPointClouds<PointT>::numPoints(typename pcl::PointCloud<PointT>::Ptr
 template<typename PointT>
 typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(typename pcl::PointCloud<PointT>::Ptr cloud, float filterRes, Eigen::Vector4f minPoint, Eigen::Vector4f maxPoint)
 {
-
-    // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
 
-    // TODO:: Fill in the function to do voxel grid point reduction and region based filtering
+    //Apply voxel grid
+    typename pcl::PointCloud<PointT>::Ptr cloudFiltered(new pcl::PointCloud<PointT>());
+
+    pcl::VoxelGrid<PointT> grid;
+    grid.setInputCloud(cloud);
+    grid.setLeafSize(filterRes,filterRes,filterRes);
+    grid.filter(*cloudFiltered); //store filtered cloud
+
+    //Apply region based filtering
+    typename pcl::PointCloud<PointT>::Ptr cloudRegion(new pcl::PointCloud<PointT>());
+
+    pcl::CropBox<PointT> region(true);
+    region.setMax(maxPoint);
+    region.setMin(minPoint);
+    region.setInputCloud(cloudFiltered);
+    region.filter(*cloudRegion); //store region of interest
+
+    //Remove roof points
+    std::vector<int> indices;
+
+    pcl::CropBox<PointT> roof(true);
+    region.setMin(Eigen::Vector4f(-1.5,-1.7,-1,1));
+    region.setMax(Eigen::Vector4f(2.6,1.7,-0.4,1));
+    region.setInputCloud(cloudRegion);
+    region.filter(indices); //store outliers
+
+    pcl::PointIndices::Ptr outliers(new pcl::PointIndices());
+    for(int index : indices){
+        outliers->indices.push_back(index);
+    }
+
+    pcl::ExtractIndices<PointT> result;
+    result.setInputCloud(cloudRegion);
+    result.filter(*cloudRegion); //extract outliers
+    result.setIndices(outliers);
+    result.setNegative(true);
 
     auto endTime = std::chrono::steady_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-    std::cout << "filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
+    std::cout << "Filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
 
-    return cloud;
-
+    return cloudRegion;
 }
 
 
